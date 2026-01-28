@@ -1,10 +1,7 @@
-// Import database connection
+// Dependencies
 const dbConection = require('../db/config');
-//Import bcrypt for password hashing
 const bcrypt = require('bcrypt');
-// Import status codes
 const {StatusCodes} = require('http-status-codes');
-// Import jsonwebtoken for token generation
 const jws = require('jsonwebtoken');
 
 
@@ -22,7 +19,6 @@ const register = async(req, res) => {
             'select username,userid from usertable where username = ? or email = ?',
             [username,email]
         )
-        //// res.json({userExists: userExists});
 
         // Check if user with same username or email already exists
         if(userExists.length > 0){
@@ -61,12 +57,10 @@ const register = async(req, res) => {
             message:error.message
         })
     }
-    //// res.send('success register route');
 }
 
 //============ Login Controller ============//
 const login = async (req, res) => {
-    //// res.send('success login route');
     const {email, password} = req.body;
     // Check if email and password are provided
     if(!email || !password) {
@@ -107,11 +101,13 @@ const login = async (req, res) => {
 
         return res.status(StatusCodes.OK).json({
             message: "Login successful",
-            token: token
+            token: token,
+            username :username,
+            userid :userid
         });
 
     }catch(error){
-        console.log(error.message);
+        // console.log(error.message);
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
             error: "Internal Server Error",
             message: "An unexpected error occurred.",
@@ -127,7 +123,78 @@ const checkUser = (req, res) => {
         message: 'valid user',
         user:{username, userid}
     })
-    //// res.send('success check user route');
 }
 
-module.exports = { register, login, checkUser };
+//============ user avater Controller ============//
+const updateAvatar = async (req, res) => {
+    const userid = req.user.userid;
+
+    if (!req.file) {
+        return res.status(StatusCodes.BAD_REQUEST).json({ message: "No file uploaded" });
+    }
+
+    const avatarPath = `/uploads/${req.file.filename}`;
+
+    try {
+        await dbConection.query(
+        "UPDATE usertable SET avatar = ? WHERE userid = ?",
+        [avatarPath, userid]
+    );
+
+        res.status(StatusCodes.OK).json({
+        message: "Avatar updated successfully",
+        avatar: avatarPath,
+    });
+    } catch (error) {
+        console.error(error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Avatar update failed" });
+    }
+};
+
+//getProfile/userController.js
+const getProfile = async (req, res) => {
+    const userid = req.user.userid;
+    try {
+        const [userData] = await dbConection.query(
+        `SELECT u.userid, u.username, u.avatar, u.bio,
+                (SELECT COUNT(*) FROM questiontable q WHERE q.userid = u.userid) AS question_count,
+                (SELECT COUNT(*) FROM answertable a WHERE a.userid = u.userid) AS answer_count
+            FROM usertable u
+            WHERE u.userid = ?`,
+        [userid]
+    );
+
+        res.status(StatusCodes.OK).json(userData[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Failed to fetch profile" });
+    }
+};
+
+const updateProfile = async (req, res) => {
+    const { bio } = req.body;
+    const userid = req.user.userid;
+
+    try {
+        await dbConection.query("UPDATE usertable SET bio = ? WHERE userid = ?", [
+        bio,
+        userid,
+    ]);
+
+    res.json({ message: "Profile updated" });
+    } catch (err) {
+        console.error(err);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Server error" });
+    }
+};
+
+
+
+module.exports = {
+    register,
+    login,
+    checkUser,
+    updateAvatar,
+    getProfile,
+    updateProfile,
+};

@@ -3,15 +3,28 @@ const router = express.Router();
 // Import auth middleware
 const authMiddleware = require('../middleware/authmiddleware');
 
-const { getAllQuestions,getQuestionById,createQuestion} = require('../controllers/questionsController');
+const {
+    getAllQuestions,
+    getQuestionById,
+    createQuestion,
+    updateQuestion,
+    searchQuestions,
+} = require("../controllers/questionsController");
 
-//Get all questions route
-router.get("/",authMiddleware, getAllQuestions);
+// Get all questions
+router.get("/", authMiddleware, getAllQuestions);
 
-//Get Retrieves details of a specific question route
+// Search questions (specific path first!)
+router.get("/search", searchQuestions);
+
+// Get one question by ID (dynamic path after)
 router.get("/:question_id", authMiddleware, getQuestionById);
 
-//Post Creates a new question route
-router.post("/",authMiddleware, createQuestion);
+// Create a new question
+router.post("/", authMiddleware, createQuestion);
+
+// Update an existing question
+router.put("/:question_id", authMiddleware, updateQuestion);
+
 
 module.exports = router;

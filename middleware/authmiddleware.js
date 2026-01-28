@@ -6,7 +6,7 @@ const jws = require('jsonwebtoken');
 
 // Authentication middleware to verify JWT tokens
 async function authMiddleware(req, res, next){
-    const authHeader = req.headers['authorization'];
+    const authHeader = req.headers["authorization"];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
             Error: "Unauthorized [No token provided]",
@@ -15,8 +15,7 @@ async function authMiddleware(req, res, next){
     }
     // Extract token from "Bearer <token>"
     const token = authHeader.split(' ')[1];
-    //// console.log(authHeader);
-    //// console.log(token);
+    
     try{
         // Verify token
         const data = jws.verify(token, process.env.JWT_SECRET);

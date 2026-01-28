@@ -1,19 +1,54 @@
-// Import database connection
+// Dependencies
 const dbConnection = require("../db/config");
-// Import status codes
 const { StatusCodes } = require("http-status-codes");
-// Import UUID for unique question IDs
+const { NotFoundError } = require("openai");
 const { v4: uuidv4 } = require("uuid");
 
 
 //============ Get All Questions Controller ============//
 const getAllQuestions = async (req, res) => {
-    // //res.send("success get all questions");
     try {
-        const [questions] = await dbConnection.query('select questionid, id, title, description, created_at from questiontable order by created_at desc')
-        return res.status(StatusCodes.OK).json({
-            questions: questions
-        });
+        const [questions] = await dbConnection.query(
+          `
+    SELECT
+        q.questionid,
+        q.id,
+        q.title,
+        q.description,
+        q.tag,
+        q.created_at,
+        u.username,
+        u.avatar,
+        u.bio,
+        
+        COUNT(DISTINCT a.answerid) AS answer_count,
+        COALESCE(SUM(CASE WHEN ar.reaction = 'like' THEN 1 END), 0) AS like_count,
+        COALESCE(SUM(CASE WHEN ar.reaction = 'dislike' THEN 1 END), 0) AS dislike_count
+
+    FROM questiontable q
+    INNER JOIN usertable u
+        ON q.userid = u.userid
+    LEFT JOIN answertable a
+        ON q.questionid = a.questionid
+    LEFT JOIN answer_reactions ar
+        ON a.answerid = ar.answer_id
+    GROUP BY
+        q.questionid,
+        q.id,
+        q.title,
+        q.description,
+        q.tag,
+        q.created_at,
+        u.username,
+        u.avatar,
+        u.bio
+
+    ORDER BY q.created_at DESC;
+        `,
+        );
+    res.status(StatusCodes.OK).json({
+        questions: questions
+    });
 
     }catch(error){
         console.log(error.message);
@@ -26,11 +61,25 @@ const getAllQuestions = async (req, res) => {
 
 //============ Get Question By ID Controller ============//
 const getQuestionById = async(req, res) => {
-    // //res.send("success get specific question ");
     const {question_id} = req.params;
     try{
         const [questions] = await dbConnection.query(
-            'select questionid,id, title, description, userid, created_at from questiontable where questionid = ?',
+            `
+            SELECT
+                q.questionid,
+                q.id,
+                q.title,
+                q.description,
+                q.created_at,
+                u.userid,
+                u.username,
+                u.avatar,
+                u.bio
+            FROM questiontable q
+            JOIN usertable u
+                ON q.userid = u.userid
+            WHERE q.questionid = ?
+            `,
             [question_id]
         )
         // Check if question exists
@@ -56,8 +105,7 @@ const getQuestionById = async(req, res) => {
 
 //============ Create Question Controller ============//
 const createQuestion = async (req, res) => {
-    // //res.send("Question created successfully ");
-    const {title, description} = req.body;
+    const {title, description,tag} = req.body;
     const userid = req.user.userid; // comes from authMiddleware
 
     // Validate required fields
@@ -75,8 +123,8 @@ const createQuestion = async (req, res) => {
         // Insert new question into the database
         await dbConnection.query(
 
-            "insert into questiontable (questionid, title, description, userid) values (?, ?, ?, ?)",
-            [questionid, title, description, userid]
+            "insert into questiontable (questionid, title, description,tag, userid) values (?, ?, ?, ?,?)",
+            [questionid, title, description,tag, userid]
         );  
         return res.status(StatusCodes.CREATED).json({
             message: "Question created successfully",
@@ -91,8 +139,78 @@ const createQuestion = async (req, res) => {
     }
 }
 
+/*============ Update Question Controller ============*/
+const updateQuestion = async (req, res) => {
+    const { question_id } = req.params;
+    const { title, description, tag } = req.body;
+    const userid = req.user.userid;
+
+    try {
+        const [existing] = await dbConnection.query(
+            "SELECT userid FROM questiontable WHERE questionid = ?",
+            [question_id]
+        );
+    
+        if (existing.length === 0) {
+            return res.status(StatusCodes.NOT_FOUND).json({ message: "Question not found" });
+        }
+    
+        if (existing[0].userid !== userid) {
+            return res.status(StatusCodes.NOT_IMPLEMENTED).json({ message: "Not allowed" });
+        }
+    
+        await dbConnection.query(
+            "UPDATE questiontable SET title=?, description=?, tag=? WHERE questionid=?",
+            [title, description, tag, question_id]
+        );
+    
+        res.json({ message: "Question updated successfully" });
+    }   catch (error) {
+        console.log(error.message);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
+    }
+};
+
+
+// Search questions by title or body
+const searchQuestions = async (req, res) => {
+    const { q } = req.query;
+
+    if (!q || !q.trim()) {
+        return res.status(400).json({ message: "Search query required" });
+    }
+
+    try {
+        const [rows] = await dbConnection.query(
+        `
+        SELECT
+            q.questionid,
+            q.title,
+            q.description,
+            q.tag,
+            q.created_at,
+            u.username,
+            u.avatar
+        FROM questiontable q
+        JOIN usertable u ON q.userid = u.userid
+        WHERE q.title LIKE ? OR q.description LIKE ?
+        ORDER BY q.created_at DESC
+        `,
+        [`%${q}%`, `%${q}%`],
+    );
+
+    res.status(200).json(rows);
+    } catch (err) {
+        console.error("Search error:", err);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Search failed" });
+    }
+};
+
+
 module.exports = {
     getAllQuestions,
     getQuestionById,
-    createQuestion
-}
+    createQuestion,
+    updateQuestion,
+    searchQuestions,
+};

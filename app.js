@@ -1,25 +1,32 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
-const port = 5500;
+const port = process.env.PORT || 5500;
+const cors = require('cors')
 
-// Middleware to parse incoming requests
+// Middleware to parse
 app.use(express.json());
-// Import database connection
+app.use(cors());
+
+//database connection
 const dbConnection = require('./db/config');
 
 // Import routes
 const userRoutes = require('./Routes/UserRouts');
 const questionRoutes = require('./Routes/questionsRouts');
 const answerRoutes = require('./Routes/answersRouts');
+const chatRoutes = require('./Routes/chatRoutes.js');
 
-// json Middleware to parse incoming requests
-app.use(express.json());
 
 // Use routes  Middleware with prefixes
 app.use('/api/user', userRoutes);
 app.use('/api/question', questionRoutes);
-app.use('/api/answer', answerRoutes);
+app.use("/api/question/", answerRoutes);
+app.use("/api/chat", chatRoutes);
+
+//avator 
+const path = require("path");
+app.use("/uploads", express.static("uploads"));
 
 // Start the server
 const start = async () => {
@@ -37,6 +44,9 @@ const start = async () => {
         console.log("Database connection failed:", error.message);
     }
 }
+
+app.listen(port, () => console.log(`Backend running on ${port}`));
+
 start();
 
 
