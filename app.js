@@ -1,8 +1,9 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
+
 const app = express();
-const port = process.env.PORT || 5500;
-const cors = require('cors')
+const port = process.env.PORT || 4000;
 
 // Middleware to parse
 app.use(express.json());
@@ -32,12 +33,12 @@ app.use("/uploads", express.static("uploads"));
 const start = async () => {
     try {
         // Test database connection
-        const results = await dbConnection.execute("select 'Connected to MySQL2 database' ");
+        const results = await dbConnection.execute("select 'TiDB connected' ");
         console.log(results);
         
         // Listen on the port
-        await app.listen(port, ()=>{
-            console.log(`Server is running on port ${port}`);
+        app.listen(port, ()=>{
+            console.log(`Backend  is running on port ${port}`);
         })
         
     }catch(error){
@@ -45,7 +46,6 @@ const start = async () => {
     }
 }
 
-app.listen(port, () => console.log(`Backend running on ${port}`));
 
 start();
 
