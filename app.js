@@ -12,21 +12,46 @@ const port = process.env.PORT || 4000;
 
 app.use(express.json());
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://evangadi-forum-mohammmed-abdu.netlify.app",
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    credentials: true,
-  }),
-);
+// app.use(
+//   cors({
+//     origin: [
+//       "http://localhost:5173",
+//       "https://evangadi-forum-mohammmed-abdu.netlify.app",
+//     ],
+//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//     credentials: true,
+//   }),
+// );
 
 // ================================
 // DATABASE
 // ================================
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://evangadi-forum-mohammmed-abdu.netlify.app",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith("--evangadi-forum-mohammmed-abdu.netlify.app")
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    credentials: true,
+  }),
+);
 const dbConnection = require("./db/config");
 
 // ================================
