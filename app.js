@@ -9,6 +9,25 @@ const port = process.env.PORT || 4000;
 app.use(express.json());
 app.use(cors());
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://evangadi-forum-mohammmed-abdu.netlify.app",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  }),
+);
+
 //database connection
 const dbConnection = require('./db/config');
 
